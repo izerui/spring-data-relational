@@ -164,7 +164,8 @@ public class StringBasedJdbcQuery extends AbstractJdbcQuery {
 
 		spelEvaluator.evaluate(objects).forEach(parameterMap::addValue);
 
-		return spelEvaluator.getQueryString();
+		ExpressionStringQueryWrapper queryWrapper = new ExpressionStringQueryWrapper(evaluationContextProvider, getQueryMethod().getParameters(), objects);
+		return queryWrapper.renderQueryIfExpressionOrReturnQuery(spelEvaluator.getQueryString());
 	}
 
 	private MapSqlParameterSource bindParameters(RelationalParameterAccessor accessor) {
