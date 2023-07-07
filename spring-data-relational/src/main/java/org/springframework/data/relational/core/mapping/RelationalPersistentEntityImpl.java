@@ -21,6 +21,9 @@ import org.springframework.data.mapping.model.BasicPersistentEntity;
 import org.springframework.data.relational.core.sql.SqlIdentifier;
 import org.springframework.data.util.Lazy;
 import org.springframework.data.util.TypeInformation;
+import org.springframework.expression.Expression;
+import org.springframework.expression.ParserContext;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 
@@ -34,6 +37,9 @@ import org.springframework.util.StringUtils;
  */
 class RelationalPersistentEntityImpl<T> extends BasicPersistentEntity<T, RelationalPersistentProperty>
 		implements RelationalPersistentEntity<T> {
+
+	// 增加spel的支持
+    private final SpelExpressionParser parser = new SpelExpressionParser();
 
 	private final NamingStrategy namingStrategy;
 	private final Lazy<Optional<SqlIdentifier>> tableName;
@@ -54,11 +60,19 @@ class RelationalPersistentEntityImpl<T> extends BasicPersistentEntity<T, Relatio
 		this.tableName = Lazy.of(() -> Optional.ofNullable(findAnnotation(Table.class)) //
 				.map(Table::value) //
 				.filter(StringUtils::hasText) //
+				.map(s -> { // 增加spel的支持
+                    Expression expression = parser.parseExpression(s, ParserContext.TEMPLATE_EXPRESSION);
+                    return expression.getValue(this.getEvaluationContext(null), String.class);
+                })
 				.map(this::createSqlIdentifier));
 
 		this.schemaName = Lazy.of(() -> Optional.ofNullable(findAnnotation(Table.class)) //
 				.map(Table::schema) //
 				.filter(StringUtils::hasText) //
+				.map(s -> { // 增加spel的支持
+                    Expression expression = parser.parseExpression(s, ParserContext.TEMPLATE_EXPRESSION);
+                    return expression.getValue(this.getEvaluationContext(null), String.class);
+                })
 				.map(this::createSqlIdentifier));
 	}
 
