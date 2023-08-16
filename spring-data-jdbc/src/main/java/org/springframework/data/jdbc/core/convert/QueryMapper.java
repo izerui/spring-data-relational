@@ -253,6 +253,10 @@ public class QueryMapper {
 			return condition == null ? null : Conditions.nest(condition);
 		}
 
+		if (criteria.getComparator().equals(Comparator.JUST)) {
+			return Conditions.just((String) criteria.getValue());
+		}
+
 		return mapCondition(criteria, parameterSource, table, entity);
 	}
 
