@@ -19,6 +19,8 @@ import java.util.Map;
 
 import org.springframework.data.relational.core.dialect.Dialect;
 import org.springframework.data.relational.core.mapping.RelationalMappingContext;
+import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
+import org.springframework.data.relational.core.sql.IdentifierProcessing;
 import org.springframework.util.Assert;
 import org.springframework.util.ConcurrentReferenceHashMap;
 
@@ -32,7 +34,7 @@ import org.springframework.util.ConcurrentReferenceHashMap;
  */
 public class SqlGeneratorSource {
 
-	private final Map<Class<?>, SqlGenerator> CACHE = new ConcurrentReferenceHashMap<>();
+	private final Map<String, SqlGenerator> CACHE = new ConcurrentReferenceHashMap<>();
 	private final RelationalMappingContext context;
 	private final JdbcConverter converter;
 	private final Dialect dialect;
@@ -57,8 +59,10 @@ public class SqlGeneratorSource {
 	}
 
 	SqlGenerator getSqlGenerator(Class<?> domainType) {
-
-		return CACHE.computeIfAbsent(domainType,
-				t -> new SqlGenerator(context, converter, context.getRequiredPersistentEntity(t), dialect));
+		RelationalPersistentEntity<?> relationalPersistent = context.getRequiredPersistentEntity(domainType);
+		String nakedTableName = "[".concat(context.getRequiredPersistentEntity(domainType).getTableName().toSql(IdentifierProcessing.NONE)).concat("]");
+		String key = domainType.getName().concat(nakedTableName);
+		return CACHE.computeIfAbsent(key,
+				t -> new SqlGenerator(context, converter, context.getRequiredPersistentEntity(domainType), dialect));
 	}
 }
