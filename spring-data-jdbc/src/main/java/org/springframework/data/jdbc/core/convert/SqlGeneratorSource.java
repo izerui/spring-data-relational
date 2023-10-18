@@ -59,10 +59,11 @@ public class SqlGeneratorSource {
 	}
 
 	SqlGenerator getSqlGenerator(Class<?> domainType) {
+		// context.getRequiredPersistentEntity(domainType) 本身就有一层缓存
 		RelationalPersistentEntity<?> relationalPersistent = context.getRequiredPersistentEntity(domainType);
-		String nakedTableName = "[".concat(context.getRequiredPersistentEntity(domainType).getTableName().toSql(IdentifierProcessing.NONE)).concat("]");
+		String nakedTableName = "[".concat(relationalPersistent.getTableName().toSql(IdentifierProcessing.NONE)).concat("]");
 		String key = domainType.getName().concat(nakedTableName);
 		return CACHE.computeIfAbsent(key,
-				t -> new SqlGenerator(context, converter, context.getRequiredPersistentEntity(domainType), dialect));
+				t -> new SqlGenerator(context, converter, relationalPersistent, dialect));
 	}
 }
