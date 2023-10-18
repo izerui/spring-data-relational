@@ -15,8 +15,6 @@
  */
 package org.springframework.data.relational.core.mapping;
 
-import java.util.Optional;
-
 import org.springframework.data.mapping.model.BasicPersistentEntity;
 import org.springframework.data.relational.core.sql.SqlIdentifier;
 import org.springframework.data.util.Lazy;
@@ -27,6 +25,9 @@ import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 
+import java.util.Optional;
+import java.util.function.Supplier;
+
 /**
  * Meta data a repository might need for implementing persistence operations for instances of type {@code T}
  *
@@ -36,107 +37,111 @@ import org.springframework.util.StringUtils;
  * @author Mikhail Polivakha
  */
 class RelationalPersistentEntityImpl<T> extends BasicPersistentEntity<T, RelationalPersistentProperty>
-		implements RelationalPersistentEntity<T> {
+        implements RelationalPersistentEntity<T> {
 
-	// 增加spel的支持
+    // 增加spel的支持
     private final SpelExpressionParser parser = new SpelExpressionParser();
 
-	private final NamingStrategy namingStrategy;
-	private final Lazy<Optional<SqlIdentifier>> tableName;
-	private final Lazy<Optional<SqlIdentifier>> schemaName;
-	private boolean forceQuote = true;
+    private final NamingStrategy namingStrategy;
+    private final Supplier<Optional<SqlIdentifier>> tableName;
+    private final Lazy<Optional<SqlIdentifier>> schemaName;
+    private boolean forceQuote = true;
 
-	/**
-	 * Creates a new {@link RelationalPersistentEntityImpl} for the given {@link TypeInformation}.
-	 *
-	 * @param information must not be {@literal null}.
-	 */
-	RelationalPersistentEntityImpl(TypeInformation<T> information, NamingStrategy namingStrategy) {
+    /**
+     * Creates a new {@link RelationalPersistentEntityImpl} for the given {@link TypeInformation}.
+     *
+     * @param information must not be {@literal null}.
+     */
+    RelationalPersistentEntityImpl(TypeInformation<T> information, NamingStrategy namingStrategy) {
 
-		super(information);
+        super(information);
 
-		this.namingStrategy = namingStrategy;
+        this.namingStrategy = namingStrategy;
 
-		this.tableName = Lazy.of(() -> Optional.ofNullable(findAnnotation(Table.class)) //
-				.map(Table::value) //
-				.filter(StringUtils::hasText) //
-				.map(s -> { // 增加spel的支持
+        this.tableName = () -> Optional.ofNullable(findAnnotation(Table.class)) //
+                .map(Table::value) //
+                .filter(StringUtils::hasText) //
+                .map(value -> { // 增加spel的支持
+                    if (value.contains(ParserContext.TEMPLATE_EXPRESSION.getExpressionPrefix())) {
+                        Expression expression = parser.parseExpression(value, ParserContext.TEMPLATE_EXPRESSION);
+                        return expression.getValue(this.getEvaluationContext(null), String.class);
+                    } else {
+                        return value;
+                    }
+                })
+                .map(this::createSqlIdentifier);
+
+        this.schemaName = Lazy.of(() -> Optional.ofNullable(findAnnotation(Table.class)) //
+                .map(Table::schema) //
+                .filter(StringUtils::hasText) //
+                .map(s -> { // 增加spel的支持
                     Expression expression = parser.parseExpression(s, ParserContext.TEMPLATE_EXPRESSION);
                     return expression.getValue(this.getEvaluationContext(null), String.class);
                 })
-				.map(this::createSqlIdentifier));
+                .map(this::createSqlIdentifier));
+    }
 
-		this.schemaName = Lazy.of(() -> Optional.ofNullable(findAnnotation(Table.class)) //
-				.map(Table::schema) //
-				.filter(StringUtils::hasText) //
-				.map(s -> { // 增加spel的支持
-                    Expression expression = parser.parseExpression(s, ParserContext.TEMPLATE_EXPRESSION);
-                    return expression.getValue(this.getEvaluationContext(null), String.class);
-                })
-				.map(this::createSqlIdentifier));
-	}
+    private SqlIdentifier createSqlIdentifier(String name) {
+        return isForceQuote() ? SqlIdentifier.quoted(name) : SqlIdentifier.unquoted(name);
+    }
 
-	private SqlIdentifier createSqlIdentifier(String name) {
-		return isForceQuote() ? SqlIdentifier.quoted(name) : SqlIdentifier.unquoted(name);
-	}
+    private SqlIdentifier createDerivedSqlIdentifier(String name) {
+        return new DerivedSqlIdentifier(name, isForceQuote());
+    }
 
-	private SqlIdentifier createDerivedSqlIdentifier(String name) {
-		return new DerivedSqlIdentifier(name, isForceQuote());
-	}
+    public boolean isForceQuote() {
+        return forceQuote;
+    }
 
-	public boolean isForceQuote() {
-		return forceQuote;
-	}
+    public void setForceQuote(boolean forceQuote) {
+        this.forceQuote = forceQuote;
+    }
 
-	public void setForceQuote(boolean forceQuote) {
-		this.forceQuote = forceQuote;
-	}
+    @Override
+    public SqlIdentifier getTableName() {
 
-	@Override
-	public SqlIdentifier getTableName() {
+        Optional<SqlIdentifier> explicitlySpecifiedTableName = tableName.get();
+        SqlIdentifier schemalessTableIdentifier = createDerivedSqlIdentifier(namingStrategy.getTableName(getType()));
 
-		Optional<SqlIdentifier> explicitlySpecifiedTableName = tableName.get();
-		SqlIdentifier schemalessTableIdentifier = createDerivedSqlIdentifier(namingStrategy.getTableName(getType()));
+        return explicitlySpecifiedTableName.orElse(schemalessTableIdentifier);
+    }
 
-		return explicitlySpecifiedTableName.orElse(schemalessTableIdentifier);
-	}
+    @Override
+    public SqlIdentifier getQualifiedTableName() {
 
-	@Override
-	public SqlIdentifier getQualifiedTableName() {
+        SqlIdentifier schema = determineCurrentEntitySchema();
+        Optional<SqlIdentifier> explicitlySpecifiedTableName = tableName.get();
 
-		SqlIdentifier schema = determineCurrentEntitySchema();
-		Optional<SqlIdentifier> explicitlySpecifiedTableName = tableName.get();
+        SqlIdentifier schemalessTableIdentifier = createDerivedSqlIdentifier(namingStrategy.getTableName(getType()));
 
-		SqlIdentifier schemalessTableIdentifier = createDerivedSqlIdentifier(namingStrategy.getTableName(getType()));
+        if (schema == null) {
+            return explicitlySpecifiedTableName.orElse(schemalessTableIdentifier);
+        }
 
-		if (schema == null) {
-			return explicitlySpecifiedTableName.orElse(schemalessTableIdentifier);
-		}
+        return explicitlySpecifiedTableName.map(sqlIdentifier -> SqlIdentifier.from(schema, sqlIdentifier))
+                .orElse(SqlIdentifier.from(schema, schemalessTableIdentifier));
+    }
 
-		return explicitlySpecifiedTableName.map(sqlIdentifier -> SqlIdentifier.from(schema, sqlIdentifier))
-				.orElse(SqlIdentifier.from(schema, schemalessTableIdentifier));
-	}
+    /**
+     * @return {@link SqlIdentifier} representing the current entity schema. If the schema is not specified, neither
+     * explicitly, nor via {@link NamingStrategy}, then return {@link null}
+     */
+    @Nullable
+    private SqlIdentifier determineCurrentEntitySchema() {
 
-	/**
-	 * @return {@link SqlIdentifier} representing the current entity schema. If the schema is not specified, neither
-	 *         explicitly, nor via {@link NamingStrategy}, then return {@link null}
-	 */
-	@Nullable
-	private SqlIdentifier determineCurrentEntitySchema() {
+        Optional<SqlIdentifier> explicitlySpecifiedSchema = schemaName.get();
+        return explicitlySpecifiedSchema.orElseGet(
+                () -> StringUtils.hasText(namingStrategy.getSchema()) ? createDerivedSqlIdentifier(namingStrategy.getSchema())
+                        : null);
+    }
 
-		Optional<SqlIdentifier> explicitlySpecifiedSchema = schemaName.get();
-		return explicitlySpecifiedSchema.orElseGet(
-				() -> StringUtils.hasText(namingStrategy.getSchema()) ? createDerivedSqlIdentifier(namingStrategy.getSchema())
-						: null);
-	}
+    @Override
+    public SqlIdentifier getIdColumn() {
+        return getRequiredIdProperty().getColumnName();
+    }
 
-	@Override
-	public SqlIdentifier getIdColumn() {
-		return getRequiredIdProperty().getColumnName();
-	}
-
-	@Override
-	public String toString() {
-		return String.format("RelationalPersistentEntityImpl<%s>", getType());
-	}
+    @Override
+    public String toString() {
+        return String.format("RelationalPersistentEntityImpl<%s>", getType());
+    }
 }
