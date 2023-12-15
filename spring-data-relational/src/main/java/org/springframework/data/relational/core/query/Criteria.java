@@ -460,6 +460,11 @@ public class Criteria implements CriteriaDefinition {
 			return;
 		}
 
+		if (criteria instanceof JustCriteria) {
+			stringBuilder.append(criteria.getValue());
+			return;
+		}
+
 		stringBuilder.append(criteria.getColumn().toSql(IdentifierProcessing.NONE)).append(' ')
 				.append(criteria.getComparator().getComparator());
 
