@@ -5,7 +5,7 @@
 
 	<groupId>org.springframework.data</groupId>
 	<artifactId>spring-data-relational-parent</artifactId>
-	<version>3.4.3</version>
+	<version>3.4.3.SPEL-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<name>Spring Data Relational Parent</name>
@@ -55,6 +55,7 @@
 
 		<jmh.version>1.37</jmh.version>
 		<mbr.version>0.4.0.BUILD-SNAPSHOT</mbr.version>
+		<maven-source-plugin.version>3.2.1</maven-source-plugin.version>
 	</properties>
 
 	<inceptionYear>2017</inceptionYear>
@@ -259,6 +260,19 @@
 	<build>
 		<plugins>
 			<plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>${maven-source-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<executions>
@@ -309,6 +323,19 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<distributionManagement>
+        <repository>
+            <id>releases</id>
+            <name>Nexus Release Repository</name>
+            <url>http://192.168.1.235:8081/nexus/content/repositories/releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>snapshots</id>
+            <name>Nexus Snapshot Repository</name>
+            <url>http://192.168.1.235:8081/nexus/content/repositories/snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
 
 	<repositories>
 		

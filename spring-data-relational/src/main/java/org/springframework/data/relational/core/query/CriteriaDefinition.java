@@ -140,7 +140,7 @@ public interface CriteriaDefinition {
 	enum Comparator {
 		INITIAL(""), EQ("="), NEQ("!="), BETWEEN("BETWEEN"), NOT_BETWEEN("NOT BETWEEN"), LT("<"), LTE("<="), GT(">"), GTE(
 				">="), IS_NULL("IS NULL"), IS_NOT_NULL("IS NOT NULL"), LIKE(
-						"LIKE"), NOT_LIKE("NOT LIKE"), NOT_IN("NOT IN"), IN("IN"), IS_TRUE("IS TRUE"), IS_FALSE("IS FALSE");
+						"LIKE"), NOT_LIKE("NOT LIKE"), NOT_IN("NOT IN"), IN("IN"), IS_TRUE("IS TRUE"), IS_FALSE("IS FALSE"), JUST("JUST");
 
 		private final String comparator;
 

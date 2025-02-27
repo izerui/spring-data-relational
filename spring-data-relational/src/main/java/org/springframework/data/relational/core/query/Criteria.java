@@ -155,6 +155,13 @@ public class Criteria implements CriteriaDefinition {
 		return new DefaultCriteriaStep(SqlIdentifier.unquoted(column));
 	}
 
+	public static JustCriteria just(String sql) {
+
+		Assert.hasText(sql, "sql must not be null or empty");
+
+		return new JustCriteria(sql);
+	}
+
 	/**
 	 * Create a new {@link Criteria} and combine it with {@code AND} using the provided {@code column} name.
 	 *
